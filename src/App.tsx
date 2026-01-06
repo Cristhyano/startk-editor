@@ -62,12 +62,20 @@ function DocumentTextarea({ value, onChange, className, textareaRef }: DocumentT
 }
 
 function App() {
+    type DefinitiveDoc = {
+        id: string;
+        title: string;
+        content: string;
+    };
+
     type SavedState = {
         upper: string;
         left: string;
         right: string;
         bottom: string;
         center: string;
+        definitives?: Array<Pick<DefinitiveDoc, "title" | "content">>;
+        activeIndex?: number;
     };
 
     const storageKey = "stark-editor:layout-texts";
@@ -78,21 +86,51 @@ function App() {
         bottom: "",
         center: "",
     };
+    const defaultDefinitives: DefinitiveDoc[] = [
+        { id: "def-1", title: "DEF 1", content: "" },
+    ];
+    const definitiveCounterRef = useRef(2);
 
     const loadState = (): SavedState => {
         if (typeof window === "undefined") {
-            return emptyState;
+            return {
+                ...emptyState,
+                definitives: defaultDefinitives.map(({ title, content }) => ({ title, content })),
+                activeIndex: 0,
+            };
         }
         try {
             const raw = window.localStorage.getItem(storageKey);
             if (!raw) {
-                return emptyState;
+                return {
+                    ...emptyState,
+                    definitives: defaultDefinitives.map(({ title, content }) => ({ title, content })),
+                    activeIndex: 0,
+                };
             }
             const parsed = JSON.parse(raw) as Partial<SavedState>;
-            return { ...emptyState, ...parsed };
+            const parsedDefinitives = Array.isArray(parsed.definitives)
+                ? parsed.definitives
+                : parsed.right
+                  ? [{ title: "DEF 1", content: parsed.right }]
+                  : defaultDefinitives.map(({ title, content }) => ({ title, content }));
+            const parsedIndex =
+                typeof parsed.activeIndex === "number"
+                    ? Math.max(0, Math.min(parsedDefinitives.length - 1, parsed.activeIndex))
+                    : 0;
+            return {
+                ...emptyState,
+                ...parsed,
+                definitives: parsedDefinitives,
+                activeIndex: parsedIndex,
+            };
         } catch {
             window.localStorage.removeItem(storageKey);
-            return emptyState;
+            return {
+                ...emptyState,
+                definitives: defaultDefinitives.map(({ title, content }) => ({ title, content })),
+                activeIndex: 0,
+            };
         }
     };
 
@@ -103,7 +141,16 @@ function App() {
 
     const [upperText, setUpperText] = useState(initialStateRef.current.upper);
     const [leftText, setLeftText] = useState(initialStateRef.current.left);
-    const [rightText, setRightText] = useState(initialStateRef.current.right);
+    const [definitives, setDefinitives] = useState<DefinitiveDoc[]>(
+        (initialStateRef.current.definitives ?? defaultDefinitives).map((doc, index) => ({
+            id: `def-${index + 1}`,
+            title: doc.title,
+            content: doc.content,
+        })),
+    );
+    const [activeDefinitiveIndex, setActiveDefinitiveIndex] = useState(
+        initialStateRef.current.activeIndex ?? 0,
+    );
     const [bottomText, setBottomText] = useState(initialStateRef.current.bottom);
     const [centerText, setCenterText] = useState(initialStateRef.current.center);
     const [floaters, setFloaters] = useState<FloatingText[]>([]);
@@ -131,28 +178,51 @@ function App() {
     const getPayload = (): SavedState => ({
         upper: upperText,
         left: leftText,
-        right: rightText,
+        right: "",
         bottom: bottomText,
         center: centerText,
+        definitives: definitives.map(({ title, content }) => ({ title, content })),
+        activeIndex: activeDefinitiveIndex,
     });
 
-    const normalizePayload = (payload: Partial<SavedState>): SavedState => ({
-        ...emptyState,
-        ...payload,
-    });
+    const normalizePayload = (payload: Partial<SavedState>): SavedState => {
+        const fallbackDefinitives = payload.right
+            ? [{ title: "DEF 1", content: payload.right }]
+            : defaultDefinitives.map(({ title, content }) => ({ title, content }));
+        const mergedDefinitives = Array.isArray(payload.definitives)
+            ? payload.definitives
+            : fallbackDefinitives;
+        const safeIndex =
+            typeof payload.activeIndex === "number"
+                ? Math.max(0, Math.min(mergedDefinitives.length - 1, payload.activeIndex))
+                : 0;
+        return {
+            ...emptyState,
+            ...payload,
+            definitives: mergedDefinitives,
+            activeIndex: safeIndex,
+        };
+    };
 
     const applyPayload = (payload: Partial<SavedState>) => {
         const normalized = normalizePayload(payload);
         setUpperText(normalized.upper);
         setLeftText(normalized.left);
-        setRightText(normalized.right);
         setBottomText(normalized.bottom);
         setCenterText(normalized.center);
+        setDefinitives(
+            normalized.definitives?.map((doc, index) => ({
+                id: `def-${index + 1}`,
+                title: doc.title,
+                content: doc.content,
+            })) ?? defaultDefinitives,
+        );
+        setActiveDefinitiveIndex(normalized.activeIndex ?? 0);
     };
 
     useEffect(() => {
         window.localStorage.setItem(storageKey, JSON.stringify(getPayload()));
-    }, [upperText, leftText, rightText, bottomText, centerText]);
+    }, [upperText, leftText, bottomText, centerText, definitives, activeDefinitiveIndex]);
 
     useEffect(() => {
         return () => {
@@ -217,23 +287,17 @@ function App() {
         }, floatDurationMs + floatDelayMs);
     };
 
-    const appendText = (
-        setTarget: React.Dispatch<React.SetStateAction<string>>,
-        value: string,
-    ) => {
-        setTarget((prev) => (prev ? `${prev}\n${value}` : value));
-    };
-
     const moveText = (
         fromText: string,
         setFrom: React.Dispatch<React.SetStateAction<string>>,
         fromRef: React.RefObject<HTMLTextAreaElement>,
         toRef: React.RefObject<HTMLTextAreaElement>,
-        setTo: React.Dispatch<React.SetStateAction<string>>,
+        toText: string,
+        setTo: (next: string) => void,
         onMoved?: () => void,
     ) => {
         createFloatingText(fromRef.current, toRef.current, fromText);
-        appendText(setTo, fromText);
+        setTo(toText ? `${toText}\n${fromText}` : fromText);
         setFrom("");
         onMoved?.();
     };
@@ -409,6 +473,58 @@ function App() {
         }
     };
 
+    const rightText = definitives[activeDefinitiveIndex]?.content ?? "";
+
+    const setRightText = (value: string) => {
+        setDefinitives((prev) =>
+            prev.map((doc, index) =>
+                index === activeDefinitiveIndex ? { ...doc, content: value } : doc,
+            ),
+        );
+    };
+
+    const addDefinitive = () => {
+        const title = `DEF ${definitiveCounterRef.current}`;
+        definitiveCounterRef.current += 1;
+        setDefinitives((prev) => [...prev, { id: `def-${title}`, title, content: "" }]);
+        setActiveDefinitiveIndex(definitives.length);
+    };
+
+    const switchDefinitive = (direction: number) => {
+        setActiveDefinitiveIndex((prev) => {
+            const count = definitives.length;
+            if (count === 0) {
+                return 0;
+            }
+            const next = (prev + direction + count) % count;
+            return next;
+        });
+    };
+
+    useEffect(() => {
+        const handleKeydown = (event: KeyboardEvent) => {
+            if (!event.ctrlKey || !event.altKey) {
+                return;
+            }
+            if (event.key === "ArrowRight") {
+                event.preventDefault();
+                switchDefinitive(1);
+                return;
+            }
+            if (event.key === "ArrowLeft") {
+                event.preventDefault();
+                switchDefinitive(-1);
+                return;
+            }
+            if (event.key === "n" || event.key === "N") {
+                event.preventDefault();
+                addDefinitive();
+            }
+        };
+
+        window.addEventListener("keydown", handleKeydown);
+        return () => window.removeEventListener("keydown", handleKeydown);
+    }, [definitives.length]);
     const handleCenterKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
         const selectionStart = event.currentTarget.selectionStart ?? 0;
         const selectionEnd = event.currentTarget.selectionEnd ?? 0;
@@ -438,33 +554,38 @@ function App() {
             return;
         }
 
+        if (event.altKey) {
+            return;
+        }
+
         if (!event.ctrlKey) {
             return;
         }
 
         const shiftMoves: Record<string, () => void> = {
             ArrowDown: () =>
-                moveText(upperText, setUpperText, upperRef, centerRef, setCenterText),
+                moveText(upperText, setUpperText, upperRef, centerRef, centerText, setCenterText),
             ArrowRight: () =>
-                moveText(leftText, setLeftText, leftRef, centerRef, setCenterText),
+                moveText(leftText, setLeftText, leftRef, centerRef, centerText, setCenterText),
             ArrowLeft: () =>
-                moveText(rightText, setRightText, rightRef, centerRef, setCenterText),
+                moveText(rightText, setRightText, rightRef, centerRef, centerText, setCenterText),
             ArrowUp: () =>
-                moveText(bottomText, setBottomText, bottomRef, centerRef, setCenterText),
+                moveText(bottomText, setBottomText, bottomRef, centerRef, centerText, setCenterText),
         };
         const directMoves: Record<string, () => void> = {
             ArrowUp: () =>
-                moveText(centerText, setCenterText, centerRef, upperRef, setUpperText),
+                moveText(centerText, setCenterText, centerRef, upperRef, upperText, setUpperText),
             ArrowLeft: () =>
-                moveText(centerText, setCenterText, centerRef, leftRef, setLeftText),
+                moveText(centerText, setCenterText, centerRef, leftRef, leftText, setLeftText),
             ArrowRight: () =>
-                moveText(centerText, setCenterText, centerRef, rightRef, setRightText),
+                moveText(centerText, setCenterText, centerRef, rightRef, rightText, setRightText),
             ArrowDown: () =>
                 moveText(
                     centerText,
                     setCenterText,
                     centerRef,
                     bottomRef,
+                    bottomText,
                     setBottomText,
                     startTrashTimer,
                 ),
@@ -639,7 +760,7 @@ function App() {
                 }
             `}</style>
 
-            <div className="flex-1 flex h-full flex-col gap-1">
+            <div className="flex-1 flex h-full flex-col gap-1 min-h-0">
                 <div className="text-xs font-semibold tracking-[0.2em] text-slate-400 transition-colors duration-200">
                     RASCUNHO
                 </div>
@@ -651,8 +772,8 @@ function App() {
                 />
             </div>
 
-            <div className="flex-1 w-full flex flex-col">
-                <div className="flex flex-1 flex-col gap-1">
+            <div className="flex-1 w-full flex flex-col min-h-0">
+                <div className="flex flex-1 flex-col gap-1 min-h-0">
                     <div className="text-xs font-semibold tracking-[0.2em] text-slate-400 transition-colors duration-200">
                         DOCUMENTO
                     </div>
@@ -663,7 +784,7 @@ function App() {
                         textareaRef={upperRef}
                     />
                 </div>
-                <div className="flex flex-1 flex-col gap-1">
+                <div className="flex flex-1 flex-col gap-1 min-h-0">
                     <div className="text-xs font-semibold tracking-[0.2em] text-slate-400 transition-colors duration-200">
                         ENTRADA
                     </div>
@@ -677,11 +798,11 @@ function App() {
                     ></textarea>
                 </div>
 
-                <div className="flex flex-1 flex-col gap-1">
+                <div className="flex flex-1 flex-col gap-1 min-h-0">
                     <div className="text-xs font-semibold tracking-[0.2em] text-slate-400 transition-colors duration-200">
                         LIXEIRA
                     </div>
-                    <div className="flex-1 relative">
+                    <div className="flex-1 relative min-h-0">
                         <DocumentTextarea
                             className={`${darkTextareaClass} h-full w-full transition-shadow duration-200 focus:shadow-[0_0_0_1px_rgba(148,163,184,0.3)]`}
                             value={bottomText}
@@ -700,12 +821,37 @@ function App() {
                 </div>
             </div>
 
-            <div className="flex-1 flex h-full flex-col gap-1">
+            <div className="flex-1 flex h-full flex-col gap-1 min-h-0 overflow-hidden">
                 <div className="text-xs font-semibold tracking-[0.2em] text-slate-400 transition-colors duration-200">
                     DEFINITIVO
                 </div>
+                <div className="flex items-center gap-2">
+                    {definitives.map((doc, index) => (
+                        <button
+                            key={doc.id}
+                            className={`rounded-md border px-2 py-1 text-[10px] tracking-[0.2em] transition-colors duration-200 ${
+                                index === activeDefinitiveIndex
+                                    ? "border-slate-500 bg-slate-800 text-slate-100"
+                                    : "border-slate-700 bg-slate-900 text-slate-400 hover:text-slate-200"
+                            }`}
+                            type="button"
+                            onClick={() => setActiveDefinitiveIndex(index)}
+                            title={`DEF ${index + 1}`}
+                        >
+                            {doc.title}
+                        </button>
+                    ))}
+                    <button
+                        className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[10px] text-slate-400 transition-colors duration-200 hover:text-slate-200"
+                        type="button"
+                        onClick={addDefinitive}
+                        title="Novo definitivo"
+                    >
+                        +
+                    </button>
+                </div>
                 {rightPreviewMode ? (
-                    <div className={`${darkTextareaClass} flex-1 w-full overflow-auto fade-in`}>
+                    <div className={`${darkTextareaClass} flex-1 w-full overflow-auto min-h-0 fade-in`}>
                         <div className="space-y-2 leading-relaxed">
                             {renderMarkdownLines(rightText)}
                         </div>
