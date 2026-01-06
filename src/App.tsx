@@ -24,6 +24,11 @@ type FloatingText = {
     dy: number;
 };
 
+type CommandEntry = {
+    id: number;
+    text: string;
+};
+
 const assignRef = (
     ref: React.Ref<HTMLTextAreaElement> | undefined,
     node: HTMLTextAreaElement | null,
@@ -69,7 +74,6 @@ function App() {
     };
 
     type SavedState = {
-        upper: string;
         left: string;
         right: string;
         bottom: string;
@@ -80,7 +84,6 @@ function App() {
 
     const storageKey = "stark-editor:layout-texts";
     const emptyState: SavedState = {
-        upper: "",
         left: "",
         right: "",
         bottom: "",
@@ -139,7 +142,6 @@ function App() {
         initialStateRef.current = loadState();
     }
 
-    const [upperText, setUpperText] = useState(initialStateRef.current.upper);
     const [leftText, setLeftText] = useState(initialStateRef.current.left);
     const [definitives, setDefinitives] = useState<DefinitiveDoc[]>(
         (initialStateRef.current.definitives ?? defaultDefinitives).map((doc, index) => ({
@@ -153,15 +155,18 @@ function App() {
     );
     const [bottomText, setBottomText] = useState(initialStateRef.current.bottom);
     const [centerText, setCenterText] = useState(initialStateRef.current.center);
+    const [commandLog, setCommandLog] = useState<CommandEntry[]>([]);
+    const [activeCommandId, setActiveCommandId] = useState<number | null>(null);
+    const [pressedKeys, setPressedKeys] = useState<string[]>([]);
     const [floaters, setFloaters] = useState<FloatingText[]>([]);
     const nextFloaterId = useRef(0);
     const centerRef = useRef<HTMLTextAreaElement | null>(null);
-    const upperRef = useRef<HTMLTextAreaElement | null>(null);
     const leftRef = useRef<HTMLTextAreaElement | null>(null);
     const rightRef = useRef<HTMLTextAreaElement | null>(null);
     const bottomRef = useRef<HTMLTextAreaElement | null>(null);
     const importInputRef = useRef<HTMLInputElement | null>(null);
     const trashTimerRef = useRef<number | null>(null);
+    const commandTimerRef = useRef<number | null>(null);
     const darkTextareaClass =
         "resize-none p-4 bg-slate-950 text-slate-100 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-600 transition-colors duration-200";
     const draftTextareaClass =
@@ -176,7 +181,6 @@ function App() {
         "rounded-md border border-slate-700 bg-slate-900 p-2 text-slate-200 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-600 transition-colors duration-200";
 
     const getPayload = (): SavedState => ({
-        upper: upperText,
         left: leftText,
         right: "",
         bottom: bottomText,
@@ -206,7 +210,6 @@ function App() {
 
     const applyPayload = (payload: Partial<SavedState>) => {
         const normalized = normalizePayload(payload);
-        setUpperText(normalized.upper);
         setLeftText(normalized.left);
         setBottomText(normalized.bottom);
         setCenterText(normalized.center);
@@ -222,13 +225,58 @@ function App() {
 
     useEffect(() => {
         window.localStorage.setItem(storageKey, JSON.stringify(getPayload()));
-    }, [upperText, leftText, bottomText, centerText, definitives, activeDefinitiveIndex]);
+    }, [leftText, bottomText, centerText, definitives, activeDefinitiveIndex]);
 
     useEffect(() => {
         return () => {
             if (trashTimerRef.current) {
                 window.clearTimeout(trashTimerRef.current);
             }
+            if (commandTimerRef.current) {
+                window.clearTimeout(commandTimerRef.current);
+            }
+        };
+    }, []);
+
+    useEffect(() => {
+        const normalizeKey = (key: string) => {
+            const map: Record<string, string> = {
+                Control: "Ctrl",
+                Alt: "Alt",
+                Shift: "Shift",
+                ArrowLeft: "Left",
+                ArrowRight: "Right",
+                ArrowUp: "Up",
+                ArrowDown: "Down",
+                Backspace: "Backspace",
+                " ": "Space",
+            };
+            return map[key] ?? key.toUpperCase();
+        };
+
+        const getOrderedKeys = (set: Set<string>) => {
+            const priority = ["Ctrl", "Alt", "Shift"];
+            const rest = [...set].filter((value) => !priority.includes(value));
+            return [...priority.filter((value) => set.has(value)), ...rest];
+        };
+
+        const pressed = new Set<string>();
+
+        const handleDown = (event: KeyboardEvent) => {
+            pressed.add(normalizeKey(event.key));
+            setPressedKeys(getOrderedKeys(pressed));
+        };
+
+        const handleUp = (event: KeyboardEvent) => {
+            pressed.delete(normalizeKey(event.key));
+            setPressedKeys(getOrderedKeys(pressed));
+        };
+
+        window.addEventListener("keydown", handleDown);
+        window.addEventListener("keyup", handleUp);
+        return () => {
+            window.removeEventListener("keydown", handleDown);
+            window.removeEventListener("keyup", handleUp);
         };
     }, []);
 
@@ -287,6 +335,23 @@ function App() {
         }, floatDurationMs + floatDelayMs);
     };
 
+    const logCommand = (label: string) => {
+        const timestamp = new Date().toLocaleTimeString("pt-BR", { hour12: false });
+        const entry: CommandEntry = {
+            id: Date.now() + Math.floor(Math.random() * 1000),
+            text: `[${timestamp}] ${label}`,
+        };
+        setCommandLog((prev) => [...prev, entry].slice(-10));
+        setActiveCommandId(entry.id);
+        if (commandTimerRef.current) {
+            window.clearTimeout(commandTimerRef.current);
+        }
+        commandTimerRef.current = window.setTimeout(() => {
+            setActiveCommandId(null);
+            commandTimerRef.current = null;
+        }, 260);
+    };
+
     const moveText = (
         fromText: string,
         setFrom: React.Dispatch<React.SetStateAction<string>>,
@@ -294,11 +359,13 @@ function App() {
         toRef: React.RefObject<HTMLTextAreaElement>,
         toText: string,
         setTo: (next: string) => void,
+        logLabel: string,
         onMoved?: () => void,
     ) => {
         createFloatingText(fromRef.current, toRef.current, fromText);
         setTo(toText ? `${toText}\n${fromText}` : fromText);
         setFrom("");
+        logCommand(logLabel);
         onMoved?.();
     };
 
@@ -490,6 +557,24 @@ function App() {
         setActiveDefinitiveIndex(definitives.length);
     };
 
+    const removeDefinitive = () => {
+        if (definitives.length <= 1) {
+            return;
+        }
+        const current = definitives[activeDefinitiveIndex];
+        if (!current) {
+            return;
+        }
+        const confirmed = window.confirm(
+            `Remover ${current.title}? O texto será perdido.`,
+        );
+        if (!confirmed) {
+            return;
+        }
+        setDefinitives((prev) => prev.filter((_, index) => index !== activeDefinitiveIndex));
+        setActiveDefinitiveIndex((prev) => Math.max(0, prev - 1));
+    };
+
     const switchDefinitive = (direction: number) => {
         setActiveDefinitiveIndex((prev) => {
             const count = definitives.length;
@@ -509,16 +594,25 @@ function App() {
             if (event.key === "ArrowRight") {
                 event.preventDefault();
                 switchDefinitive(1);
+                logCommand("TAB NEXT");
                 return;
             }
             if (event.key === "ArrowLeft") {
                 event.preventDefault();
                 switchDefinitive(-1);
+                logCommand("TAB PREV");
                 return;
             }
             if (event.key === "n" || event.key === "N") {
                 event.preventDefault();
                 addDefinitive();
+                logCommand("TAB NEW");
+                return;
+            }
+            if (event.shiftKey && event.key === "Backspace") {
+                event.preventDefault();
+                removeDefinitive();
+                logCommand("TAB CLOSE");
             }
         };
 
@@ -532,12 +626,14 @@ function App() {
         if (event.key === "Tab") {
             event.preventDefault();
             indentSelection(selectionStart, selectionEnd, event.shiftKey);
+            logCommand(event.shiftKey ? "OUTDENT" : "INDENT");
             return;
         }
 
         if (event.key === "Enter") {
             if (handleAutoListEnter(selectionStart, selectionEnd)) {
                 event.preventDefault();
+                logCommand("LIST CONTINUE");
             }
             return;
         }
@@ -545,12 +641,14 @@ function App() {
         if (event.ctrlKey && !event.shiftKey && event.key >= "1" && event.key <= "3") {
             event.preventDefault();
             applyHeading(Number(event.key), selectionStart);
+            logCommand(`HEADING H${event.key}`);
             return;
         }
 
         if (event.ctrlKey && event.shiftKey && (event.key === "c" || event.key === "C")) {
             event.preventDefault();
             toggleChecklist(selectionStart);
+            logCommand("CHECKLIST TOGGLE");
             return;
         }
 
@@ -563,22 +661,58 @@ function App() {
         }
 
         const shiftMoves: Record<string, () => void> = {
-            ArrowDown: () =>
-                moveText(upperText, setUpperText, upperRef, centerRef, centerText, setCenterText),
             ArrowRight: () =>
-                moveText(leftText, setLeftText, leftRef, centerRef, centerText, setCenterText),
+                moveText(
+                    leftText,
+                    setLeftText,
+                    leftRef,
+                    centerRef,
+                    centerText,
+                    setCenterText,
+                    "MOVE LEFT -> CENTER",
+                ),
             ArrowLeft: () =>
-                moveText(rightText, setRightText, rightRef, centerRef, centerText, setCenterText),
+                moveText(
+                    rightText,
+                    setRightText,
+                    rightRef,
+                    centerRef,
+                    centerText,
+                    setCenterText,
+                    "MOVE RIGHT -> CENTER",
+                ),
             ArrowUp: () =>
-                moveText(bottomText, setBottomText, bottomRef, centerRef, centerText, setCenterText),
+                moveText(
+                    bottomText,
+                    setBottomText,
+                    bottomRef,
+                    centerRef,
+                    centerText,
+                    setCenterText,
+                    "MOVE BOTTOM -> CENTER",
+                ),
         };
         const directMoves: Record<string, () => void> = {
-            ArrowUp: () =>
-                moveText(centerText, setCenterText, centerRef, upperRef, upperText, setUpperText),
             ArrowLeft: () =>
-                moveText(centerText, setCenterText, centerRef, leftRef, leftText, setLeftText),
+                moveText(
+                    centerText,
+                    setCenterText,
+                    centerRef,
+                    leftRef,
+                    leftText,
+                    setLeftText,
+                    "MOVE CENTER -> LEFT",
+                ),
             ArrowRight: () =>
-                moveText(centerText, setCenterText, centerRef, rightRef, rightText, setRightText),
+                moveText(
+                    centerText,
+                    setCenterText,
+                    centerRef,
+                    rightRef,
+                    rightText,
+                    setRightText,
+                    "MOVE CENTER -> RIGHT",
+                ),
             ArrowDown: () =>
                 moveText(
                     centerText,
@@ -587,6 +721,7 @@ function App() {
                     bottomRef,
                     bottomText,
                     setBottomText,
+                    "MOVE CENTER -> BOTTOM",
                     startTrashTimer,
                 ),
         };
@@ -666,50 +801,78 @@ function App() {
 
     return (
         <div className="h-screen flex flex-row bg-slate-950 text-slate-100 relative overflow-hidden">
-            <div className="absolute bottom-4 left-4 z-50 flex items-center gap-2">
-                <button
-                    className={controlButtonClass}
-                    type="button"
-                    onClick={handleExport}
-                    title="Export"
-                    aria-label="Export"
-                >
-                    <DownloadIcon />
-                </button>
-                <button
-                    className={controlButtonClass}
-                    type="button"
-                    onClick={() => importInputRef.current?.click()}
-                    title="Import"
-                    aria-label="Import"
-                >
-                    <UploadIcon />
-                </button>
-                <button
-                    className={controlButtonClass}
-                    type="button"
-                    onClick={handleReset}
-                    title="Reset"
-                    aria-label="Reset"
-                >
-                    <ResetIcon />
-                </button>
-                <button
-                    className={controlButtonClass}
-                    type="button"
-                    onClick={() => setRightPreviewMode((prev) => !prev)}
-                    title={rightPreviewMode ? "Edit" : "Preview"}
-                    aria-label={rightPreviewMode ? "Edit" : "Preview"}
-                >
-                    {rightPreviewMode ? <Pencil2Icon /> : <EyeOpenIcon />}
-                </button>
-                <input
-                    ref={importInputRef}
-                    className="hidden"
-                    type="file"
-                    accept="application/json"
-                    onChange={handleImport}
-                />
+            <div className="absolute bottom-4 left-4 z-50 flex items-end gap-4">
+                <div className="flex items-center gap-2">
+                    <button
+                        className={controlButtonClass}
+                        type="button"
+                        onClick={handleExport}
+                        title="Export"
+                        aria-label="Export"
+                    >
+                        <DownloadIcon />
+                    </button>
+                    <button
+                        className={controlButtonClass}
+                        type="button"
+                        onClick={() => importInputRef.current?.click()}
+                        title="Import"
+                        aria-label="Import"
+                    >
+                        <UploadIcon />
+                    </button>
+                    <button
+                        className={controlButtonClass}
+                        type="button"
+                        onClick={handleReset}
+                        title="Reset"
+                        aria-label="Reset"
+                    >
+                        <ResetIcon />
+                    </button>
+                    <button
+                        className={controlButtonClass}
+                        type="button"
+                        onClick={() => setRightPreviewMode((prev) => !prev)}
+                        title={rightPreviewMode ? "Edit" : "Preview"}
+                        aria-label={rightPreviewMode ? "Edit" : "Preview"}
+                    >
+                        {rightPreviewMode ? <Pencil2Icon /> : <EyeOpenIcon />}
+                    </button>
+                    <input
+                        ref={importInputRef}
+                        className="hidden"
+                        type="file"
+                        accept="application/json"
+                        onChange={handleImport}
+                    />
+                </div>
+                <div className="rounded-md border border-slate-800 bg-slate-900/80 p-2 text-[10px] leading-relaxed text-slate-300">
+                    <div className="font-semibold text-slate-200">CHEATSHEET</div>
+                    <div>Ctrl+1/2/3: Title</div>
+                    <div>Tab / Shift+Tab: Indent</div>
+                    <div>Ctrl+Shift+C: Checklist</div>
+                    <div>Ctrl+Alt+N: New tab</div>
+                    <div>Ctrl+Alt+Left/Right: Switch tab</div>
+                    <div>Ctrl+Alt+Shift+Backspace: Close tab</div>
+                </div>
+                <div className="rounded-md border border-slate-800 bg-slate-900/80 p-2 text-[10px] text-slate-300">
+                    <div className="font-semibold text-slate-200">KEYS</div>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                        {pressedKeys.length === 0 ? (
+                            <span className="text-slate-500">None</span>
+                        ) : (
+                            pressedKeys.map((key) => (
+                                <span
+                                    key={key}
+                                    className="rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5 text-[10px] text-slate-200"
+                                >
+                                    {key}
+                                </span>
+                            ))
+                        )}
+                    </div>
+                </div>
             </div>
             <style>{`
                 @keyframes floatArc {
@@ -739,6 +902,18 @@ function App() {
                 }
                 .fade-in {
                     animation: fadeIn 180ms ease-out forwards;
+                }
+                .active-command {
+                    animation: commandPulse 260ms ease-out forwards;
+                    color: #e2e8f0;
+                }
+                @keyframes commandPulse {
+                    0% {
+                        background-color: rgba(148, 163, 184, 0.18);
+                    }
+                    100% {
+                        background-color: transparent;
+                    }
                 }
                 @keyframes fadeIn {
                     from {
@@ -774,16 +949,19 @@ function App() {
 
             <div className="flex-1 w-full flex flex-col min-h-0">
                 <div className="flex flex-1 flex-col gap-1 min-h-0">
-                    <div className="text-xs font-semibold tracking-[0.2em] text-slate-400 transition-colors duration-200">
-                        DOCUMENTO
-                    </div>
-                    <DocumentTextarea
-                        className={`${darkTextareaClass} flex-1 transition-shadow duration-200 focus:shadow-[0_0_0_1px_rgba(148,163,184,0.3)]`}
-                        value={upperText}
-                        onChange={setUpperText}
-                        textareaRef={upperRef}
-                    />
+                <div
+                    className={`${darkTextareaClass} flex-1 font-mono text-xs leading-relaxed transition-shadow duration-200`}
+                >
+                    {commandLog.map((entry) => (
+                        <div
+                            key={entry.id}
+                            className={entry.id === activeCommandId ? "active-command" : ""}
+                        >
+                            {entry.text}
+                        </div>
+                    ))}
                 </div>
+            </div>
                 <div className="flex flex-1 flex-col gap-1 min-h-0">
                     <div className="text-xs font-semibold tracking-[0.2em] text-slate-400 transition-colors duration-200">
                         ENTRADA
@@ -829,7 +1007,7 @@ function App() {
                     {definitives.map((doc, index) => (
                         <button
                             key={doc.id}
-                            className={`rounded-md border px-2 py-1 text-[10px] tracking-[0.2em] transition-colors duration-200 ${
+                            className={`relative rounded-md border px-2 py-1 text-[10px] tracking-[0.2em] transition-colors duration-200 ${
                                 index === activeDefinitiveIndex
                                     ? "border-slate-500 bg-slate-800 text-slate-100"
                                     : "border-slate-700 bg-slate-900 text-slate-400 hover:text-slate-200"
@@ -839,6 +1017,9 @@ function App() {
                             title={`DEF ${index + 1}`}
                         >
                             {doc.title}
+                            {doc.content.trim().length > 0 ? (
+                                <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-blue-500"></span>
+                            ) : null}
                         </button>
                     ))}
                     <button
@@ -897,3 +1078,4 @@ function App() {
 }
 
 export default App;
+
