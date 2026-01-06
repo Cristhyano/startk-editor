@@ -117,6 +117,7 @@ function App() {
     const trashDurationMs = 5000;
     const [trashCycle, setTrashCycle] = useState(0);
     const [trashActive, setTrashActive] = useState(false);
+    const [rightPreviewMode, setRightPreviewMode] = useState(false);
     const controlButtonClass =
         "rounded-md border border-slate-700 bg-slate-900 px-3 py-1 text-xs text-slate-200 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-600";
 
@@ -230,6 +231,123 @@ function App() {
         onMoved?.();
     };
 
+    const applyCenterEdit = (nextValue: string, caretStart: number, caretEnd = caretStart) => {
+        setCenterText(nextValue);
+        window.requestAnimationFrame(() => {
+            if (!centerRef.current) {
+                return;
+            }
+            centerRef.current.selectionStart = caretStart;
+            centerRef.current.selectionEnd = caretEnd;
+        });
+    };
+
+    const getLineBounds = (text: string, position: number) => {
+        const start = text.lastIndexOf("\n", position - 1) + 1;
+        const end = text.indexOf("\n", position);
+        const safeEnd = end === -1 ? text.length : end;
+        return { start, end: safeEnd, line: text.slice(start, safeEnd) };
+    };
+
+    const applyHeading = (level: number, selectionStart: number) => {
+        const { start, end, line } = getLineBounds(centerText, selectionStart);
+        const match = line.match(/^(\s*)(#{1,6})\s+/);
+        const prefix = "#".repeat(level) + " ";
+        let nextLine = line;
+
+        if (match) {
+            if (match[2].length === level) {
+                nextLine = line.slice(match[0].length);
+            } else {
+                nextLine = `${match[1]}${prefix}${line.slice(match[0].length)}`;
+            }
+        } else {
+            const indentMatch = line.match(/^(\s*)/);
+            const indent = indentMatch ? indentMatch[1] : "";
+            nextLine = `${indent}${prefix}${line.slice(indent.length)}`;
+        }
+
+        const nextValue = centerText.slice(0, start) + nextLine + centerText.slice(end);
+        const caretOffset = nextLine.length - line.length;
+        applyCenterEdit(nextValue, selectionStart + caretOffset);
+    };
+
+    const toggleChecklist = (selectionStart: number) => {
+        const { start, end, line } = getLineBounds(centerText, selectionStart);
+        const checklistMatch = line.match(/^(\s*)- \[( |x)\] /);
+        let nextLine = line;
+
+        if (checklistMatch) {
+            const nextState = checklistMatch[2] === "x" ? " " : "x";
+            nextLine = line.replace(/^(\s*)- \[( |x)\] /, `$1- [${nextState}] `);
+        } else if (line.match(/^(\s*)- /)) {
+            nextLine = line.replace(/^(\s*)- /, "$1- [ ] ");
+        } else {
+            const indentMatch = line.match(/^(\s*)/);
+            const indent = indentMatch ? indentMatch[1] : "";
+            nextLine = `${indent}- [ ] ${line.slice(indent.length)}`;
+        }
+
+        const nextValue = centerText.slice(0, start) + nextLine + centerText.slice(end);
+        const caretOffset = nextLine.length - line.length;
+        applyCenterEdit(nextValue, selectionStart + caretOffset);
+    };
+
+    const indentSelection = (selectionStart: number, selectionEnd: number, outdent: boolean) => {
+        const startLine = getLineBounds(centerText, selectionStart).start;
+        const endLine = getLineBounds(centerText, selectionEnd).end;
+        const block = centerText.slice(startLine, endLine);
+        const lines = block.split("\n");
+        let removed = 0;
+
+        const nextLines = lines.map((line, index) => {
+            if (outdent) {
+                const match = line.match(/^ {1,2}/);
+                if (match) {
+                    removed += match[0].length;
+                    return line.slice(match[0].length);
+                }
+                return line;
+            }
+            if (index === 0 || line.length > 0) {
+                return `  ${line}`;
+            }
+            return line;
+        });
+
+        const nextBlock = nextLines.join("\n");
+        const nextValue = centerText.slice(0, startLine) + nextBlock + centerText.slice(endLine);
+        const added = outdent ? -removed : 2 * lines.length;
+        applyCenterEdit(nextValue, selectionStart + (outdent ? -Math.min(2, removed) : 2), selectionEnd + added);
+    };
+
+    const handleAutoListEnter = (selectionStart: number, selectionEnd: number) => {
+        if (selectionStart !== selectionEnd) {
+            return false;
+        }
+        const { line, start } = getLineBounds(centerText, selectionStart);
+        const checklistMatch = line.match(/^(\s*)- \[( |x)\] /);
+        if (checklistMatch) {
+            const prefix = `${checklistMatch[1]}- [ ] `;
+            const nextValue =
+                centerText.slice(0, selectionStart) + "\n" + prefix + centerText.slice(selectionStart);
+            applyCenterEdit(nextValue, selectionStart + 1 + prefix.length);
+            return true;
+        }
+        const listMatch = line.match(/^(\s*)- /);
+        if (listMatch) {
+            const prefix = `${listMatch[1]}- `;
+            const nextValue =
+                centerText.slice(0, selectionStart) + "\n" + prefix + centerText.slice(selectionStart);
+            applyCenterEdit(nextValue, selectionStart + 1 + prefix.length);
+            return true;
+        }
+        if (selectionStart === start && line.trim().length === 0) {
+            return false;
+        }
+        return false;
+    };
+
     const startTrashTimer = () => {
         if (trashTimerRef.current) {
             window.clearTimeout(trashTimerRef.current);
@@ -285,6 +403,34 @@ function App() {
     };
 
     const handleCenterKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        const selectionStart = event.currentTarget.selectionStart ?? 0;
+        const selectionEnd = event.currentTarget.selectionEnd ?? 0;
+
+        if (event.key === "Tab") {
+            event.preventDefault();
+            indentSelection(selectionStart, selectionEnd, event.shiftKey);
+            return;
+        }
+
+        if (event.key === "Enter") {
+            if (handleAutoListEnter(selectionStart, selectionEnd)) {
+                event.preventDefault();
+            }
+            return;
+        }
+
+        if (event.ctrlKey && !event.shiftKey && event.key >= "1" && event.key <= "3") {
+            event.preventDefault();
+            applyHeading(Number(event.key), selectionStart);
+            return;
+        }
+
+        if (event.ctrlKey && event.shiftKey && (event.key === "c" || event.key === "C")) {
+            event.preventDefault();
+            toggleChecklist(selectionStart);
+            return;
+        }
+
         if (!event.ctrlKey) {
             return;
         }
@@ -326,6 +472,70 @@ function App() {
         action();
     };
 
+    const escapeHtml = (value: string) =>
+        value
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+
+    const renderInlineMarkdown = (value: string) => {
+        let output = escapeHtml(value);
+        output = output.replace(/`([^`]+)`/g, "<code>$1</code>");
+        output = output.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        output = output.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+        return output;
+    };
+
+    const renderMarkdownLines = (value: string) =>
+        value.split("\n").map((line, index) => {
+            if (!line.trim()) {
+                return <div key={`e-${index}`} className="h-4"></div>;
+            }
+            const heading = line.match(/^(#{1,3})\s+(.*)$/);
+            if (heading) {
+                const level = heading[1].length;
+                const sizeClass =
+                    level === 1 ? "text-2xl" : level === 2 ? "text-xl" : "text-lg";
+                return (
+                    <div
+                        key={`h-${index}`}
+                        className={`${sizeClass} font-semibold text-slate-100`}
+                        dangerouslySetInnerHTML={{ __html: renderInlineMarkdown(heading[2]) }}
+                    />
+                );
+            }
+            const checklist = line.match(/^(\s*)- \[( |x)\] (.*)$/);
+            if (checklist) {
+                const checked = checklist[2] === "x";
+                return (
+                    <div key={`c-${index}`} className="flex items-center gap-2 text-slate-200">
+                        <span
+                            className={`inline-flex h-3 w-3 items-center justify-center border border-slate-400 ${checked ? "bg-slate-400" : "bg-transparent"}`}
+                        ></span>
+                        <span
+                            dangerouslySetInnerHTML={{ __html: renderInlineMarkdown(checklist[3]) }}
+                        />
+                    </div>
+                );
+            }
+            const bullet = line.match(/^(\s*)- (.*)$/);
+            if (bullet) {
+                return (
+                    <div key={`b-${index}`} className="flex items-start gap-2 text-slate-200">
+                        <span className="mt-2 h-1 w-1 rounded-full bg-slate-400"></span>
+                        <span dangerouslySetInnerHTML={{ __html: renderInlineMarkdown(bullet[2]) }} />
+                    </div>
+                );
+            }
+            return (
+                <div
+                    key={`p-${index}`}
+                    className="text-slate-300"
+                    dangerouslySetInnerHTML={{ __html: renderInlineMarkdown(line) }}
+                />
+            );
+        });
+
     return (
         <div className="h-screen flex flex-row bg-slate-950 text-slate-100 relative overflow-hidden">
             <div className="absolute bottom-4 left-4 z-50 flex items-center gap-2">
@@ -341,6 +551,13 @@ function App() {
                 </button>
                 <button className={controlButtonClass} type="button" onClick={handleReset}>
                     Reset
+                </button>
+                <button
+                    className={controlButtonClass}
+                    type="button"
+                    onClick={() => setRightPreviewMode((prev) => !prev)}
+                >
+                    {rightPreviewMode ? "Edit" : "Preview"}
                 </button>
                 <input
                     ref={importInputRef}
@@ -385,24 +602,23 @@ function App() {
                     }
                 }
             `}</style>
-            <div className="flex-[1]">
-                <DocumentTextarea
-                    className={`${draftTextareaClass} h-full w-full font-sans tracking-wide`}
-                    value={leftText}
-                    onChange={setLeftText}
-                    textareaRef={leftRef}
-                />
-            </div>
 
-            <div className="flex-[2] w-full flex flex-col">
+            <DocumentTextarea
+                className={`${draftTextareaClass} flex-1`}
+                value={leftText}
+                onChange={setLeftText}
+                textareaRef={leftRef}
+            />
+
+            <div className="flex-1 w-full flex flex-col">
                 <DocumentTextarea
-                    className={`${darkTextareaClass} flex-1 font-sans tracking-wide`}
+                    className={`${darkTextareaClass} flex-1`}
                     value={upperText}
                     onChange={setUpperText}
                     textareaRef={upperRef}
                 />
                 <textarea
-                    className={`${darkTextareaClass} text-center text-4xl font-mono`}
+                    className={`${darkTextareaClass} flex-1 text-4xl font-mono`}
                     value={centerText}
                     autoFocus
                     ref={centerRef}
@@ -410,28 +626,38 @@ function App() {
                     onKeyDown={handleCenterKeyDown}
                 ></textarea>
 
-                <div className="relative flex-1">
+                <div className="flex-1 relative">
                     <DocumentTextarea
-                        className={`${darkTextareaClass} h-full w-full font-sans tracking-wide`}
+                        className={`${darkTextareaClass} h-full w-full`}
                         value={bottomText}
                         onChange={setBottomText}
                         textareaRef={bottomRef}
                     />
                     {trashActive ? (
                         <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-1 bg-slate-800/70">
-                            <div key={trashCycle} className="trash-bar h-full bg-slate-400/80"></div>
+                            <div key={trashCycle} className="trash-bar h-full bg-red-500"></div>
                         </div>
                     ) : null}
                 </div>
             </div>
-            <div className="flex-[2]">
-                <DocumentTextarea
-                    className={`${darkTextareaClass} h-full w-full font-sans tracking-wide`}
-                    value={rightText}
-                    onChange={setRightText}
-                    textareaRef={rightRef}
-                />
+
+            <div className="flex-1">
+                {rightPreviewMode ? (
+                    <div className={`${darkTextareaClass} h-full w-full overflow-auto`}>
+                        <div className="space-y-2 leading-relaxed">
+                            {renderMarkdownLines(rightText)}
+                        </div>
+                    </div>
+                ) : (
+                    <DocumentTextarea
+                        className={`${darkTextareaClass} h-full w-full`}
+                        value={rightText}
+                        onChange={setRightText}
+                        textareaRef={rightRef}
+                    />
+                )}
             </div>
+            
             <div className="pointer-events-none fixed inset-0 z-50">
                 {floaters.map((floater) => (
                     <div
