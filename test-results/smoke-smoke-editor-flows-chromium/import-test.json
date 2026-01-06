@@ -1,0 +1,16 @@
+{
+  "left": "Left import",
+  "bottom": "Bottom import",
+  "center": "Center import",
+  "definitives": [
+    {
+      "title": "DEF 1",
+      "content": "Imported DEF 1"
+    },
+    {
+      "title": "DEF 2",
+      "content": "Imported DEF 2"
+    }
+  ],
+  "activeIndex": 1
+}
