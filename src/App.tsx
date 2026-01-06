@@ -116,9 +116,9 @@ function App() {
     const importInputRef = useRef<HTMLInputElement | null>(null);
     const trashTimerRef = useRef<number | null>(null);
     const darkTextareaClass =
-        "resize-none p-4 bg-slate-950 text-slate-100 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-600";
+        "resize-none p-4 bg-slate-950 text-slate-100 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-600 transition-colors duration-200";
     const draftTextareaClass =
-        "resize-none p-4 bg-slate-900 text-slate-100 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-600";
+        "resize-none p-4 bg-slate-900 text-slate-100 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-600 transition-colors duration-200";
     const floatDurationMs = 780;
     const floatDelayMs = 90;
     const trashDurationMs = 5000;
@@ -126,7 +126,7 @@ function App() {
     const [trashActive, setTrashActive] = useState(false);
     const [rightPreviewMode, setRightPreviewMode] = useState(false);
     const controlButtonClass =
-        "rounded-md border border-slate-700 bg-slate-900 p-2 text-slate-200 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-600";
+        "rounded-md border border-slate-700 bg-slate-900 p-2 text-slate-200 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-600 transition-colors duration-200";
 
     const getPayload = (): SavedState => ({
         upper: upperText,
@@ -616,6 +616,19 @@ function App() {
                     animation: trashShrink ${trashDurationMs}ms linear forwards;
                     transform-origin: left;
                 }
+                .fade-in {
+                    animation: fadeIn 180ms ease-out forwards;
+                }
+                @keyframes fadeIn {
+                    from {
+                        opacity: 0;
+                        transform: translateY(2px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
                 @keyframes trashShrink {
                     from {
                         transform: scaleX(1);
@@ -627,11 +640,11 @@ function App() {
             `}</style>
 
             <div className="flex-1 flex h-full flex-col gap-1">
-                <div className="text-xs font-semibold tracking-[0.2em] text-slate-400">
+                <div className="text-xs font-semibold tracking-[0.2em] text-slate-400 transition-colors duration-200">
                     RASCUNHO
                 </div>
                 <DocumentTextarea
-                    className={`${draftTextareaClass} flex-1`}
+                    className={`${draftTextareaClass} flex-1 transition-shadow duration-200 focus:shadow-[0_0_0_1px_rgba(148,163,184,0.3)]`}
                     value={leftText}
                     onChange={setLeftText}
                     textareaRef={leftRef}
@@ -640,22 +653,22 @@ function App() {
 
             <div className="flex-1 w-full flex flex-col">
                 <div className="flex flex-1 flex-col gap-1">
-                    <div className="text-xs font-semibold tracking-[0.2em] text-slate-400">
+                    <div className="text-xs font-semibold tracking-[0.2em] text-slate-400 transition-colors duration-200">
                         DOCUMENTO
                     </div>
                     <DocumentTextarea
-                        className={`${darkTextareaClass} flex-1`}
+                        className={`${darkTextareaClass} flex-1 transition-shadow duration-200 focus:shadow-[0_0_0_1px_rgba(148,163,184,0.3)]`}
                         value={upperText}
                         onChange={setUpperText}
                         textareaRef={upperRef}
                     />
                 </div>
                 <div className="flex flex-1 flex-col gap-1">
-                    <div className="text-xs font-semibold tracking-[0.2em] text-slate-400">
+                    <div className="text-xs font-semibold tracking-[0.2em] text-slate-400 transition-colors duration-200">
                         ENTRADA
                     </div>
                     <textarea
-                        className={`${darkTextareaClass} flex-1 text-4xl font-mono`}
+                        className={`${darkTextareaClass} flex-1 text-4xl font-mono transition-shadow duration-200 focus:shadow-[0_0_0_1px_rgba(148,163,184,0.3)]`}
                         value={centerText}
                         autoFocus
                         ref={centerRef}
@@ -665,12 +678,12 @@ function App() {
                 </div>
 
                 <div className="flex flex-1 flex-col gap-1">
-                    <div className="text-xs font-semibold tracking-[0.2em] text-slate-400">
+                    <div className="text-xs font-semibold tracking-[0.2em] text-slate-400 transition-colors duration-200">
                         LIXEIRA
                     </div>
                     <div className="flex-1 relative">
                         <DocumentTextarea
-                            className={`${darkTextareaClass} h-full w-full`}
+                            className={`${darkTextareaClass} h-full w-full transition-shadow duration-200 focus:shadow-[0_0_0_1px_rgba(148,163,184,0.3)]`}
                             value={bottomText}
                             onChange={setBottomText}
                             textareaRef={bottomRef}
@@ -688,18 +701,18 @@ function App() {
             </div>
 
             <div className="flex-1 flex h-full flex-col gap-1">
-                <div className="text-xs font-semibold tracking-[0.2em] text-slate-400">
+                <div className="text-xs font-semibold tracking-[0.2em] text-slate-400 transition-colors duration-200">
                     DEFINITIVO
                 </div>
                 {rightPreviewMode ? (
-                    <div className={`${darkTextareaClass} flex-1 w-full overflow-auto`}>
+                    <div className={`${darkTextareaClass} flex-1 w-full overflow-auto fade-in`}>
                         <div className="space-y-2 leading-relaxed">
                             {renderMarkdownLines(rightText)}
                         </div>
                     </div>
                 ) : (
                     <DocumentTextarea
-                        className={`${darkTextareaClass} flex-1 w-full`}
+                        className={`${darkTextareaClass} flex-1 w-full transition-shadow duration-200 focus:shadow-[0_0_0_1px_rgba(148,163,184,0.3)]`}
                         value={rightText}
                         onChange={setRightText}
                         textareaRef={rightRef}
