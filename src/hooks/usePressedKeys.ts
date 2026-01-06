@@ -27,21 +27,34 @@ export const usePressedKeys = () => {
 
         const pressed = new Set<string>();
 
+        const syncKeys = () => {
+            setPressedKeys(getOrderedKeys(pressed));
+        };
+
         const handleDown = (event: KeyboardEvent) => {
             pressed.add(normalizeKey(event.key));
-            setPressedKeys(getOrderedKeys(pressed));
+            syncKeys();
         };
 
         const handleUp = (event: KeyboardEvent) => {
             pressed.delete(normalizeKey(event.key));
-            setPressedKeys(getOrderedKeys(pressed));
+            syncKeys();
+        };
+
+        const clearKeys = () => {
+            pressed.clear();
+            syncKeys();
         };
 
         window.addEventListener("keydown", handleDown);
         window.addEventListener("keyup", handleUp);
+        window.addEventListener("blur", clearKeys);
+        document.addEventListener("visibilitychange", clearKeys);
         return () => {
             window.removeEventListener("keydown", handleDown);
             window.removeEventListener("keyup", handleUp);
+            window.removeEventListener("blur", clearKeys);
+            document.removeEventListener("visibilitychange", clearKeys);
         };
     }, []);
 

@@ -4,8 +4,9 @@ export const Cheatsheet = () => (
         <div>Ctrl+1/2/3: Title</div>
         <div>Tab / Shift+Tab: Indent</div>
         <div>Ctrl+Shift+C: Checklist</div>
-        <div>Ctrl+Alt+N: New tab</div>
-        <div>Ctrl+Alt+Left/Right: Switch tab</div>
-        <div>Ctrl+Alt+Shift+Backspace: Close tab</div>
+        <div>Ctrl+Alt+N: Nova aba</div>
+        <div>Ctrl+Alt+R: Renomear aba</div>
+        <div>Ctrl+Alt+Left/Right: Trocar aba</div>
+        <div>Ctrl+Alt+Shift+Backspace: Fechar aba</div>
     </div>
 );

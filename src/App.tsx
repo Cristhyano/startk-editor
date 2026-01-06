@@ -27,6 +27,7 @@ function App() {
         setActiveDefinitiveIndex,
         addDefinitive,
         removeDefinitive,
+        renameDefinitive,
         switchDefinitive,
         applyPayload,
         getPayload,
@@ -396,6 +397,9 @@ function App() {
     };
 
     const handleReset = () => {
+        if (!window.confirm("Resetar tudo? O texto sera perdido.")) {
+            return;
+        }
         applyPayload({});
         window.localStorage.removeItem(storageKey);
     };
@@ -539,6 +543,24 @@ function App() {
                 logCommand("TAB NEW");
                 return;
             }
+            if (event.key === "r" || event.key === "R") {
+                event.preventDefault();
+                const current = definitives[activeDefinitiveIndex];
+                if (!current) {
+                    return;
+                }
+                const nextTitle = window.prompt("Renomear aba", current.title);
+                if (!nextTitle) {
+                    return;
+                }
+                const trimmed = nextTitle.trim();
+                if (!trimmed) {
+                    return;
+                }
+                renameDefinitive(activeDefinitiveIndex, trimmed);
+                logCommand("TAB RENAME");
+                return;
+            }
             if (event.shiftKey && event.key === "Backspace") {
                 event.preventDefault();
                 removeDefinitive((doc) =>
@@ -550,7 +572,15 @@ function App() {
 
         window.addEventListener("keydown", handleKeydown);
         return () => window.removeEventListener("keydown", handleKeydown);
-    }, [addDefinitive, removeDefinitive, switchDefinitive, logCommand]);
+    }, [
+        addDefinitive,
+        removeDefinitive,
+        renameDefinitive,
+        switchDefinitive,
+        logCommand,
+        definitives,
+        activeDefinitiveIndex,
+    ]);
 
     const styles = (
         <style>{`

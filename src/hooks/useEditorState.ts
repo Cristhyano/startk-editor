@@ -158,6 +158,12 @@ export const useEditorState = (storageKey: string) => {
         setActiveDefinitiveIndex((prev) => Math.max(0, prev - 1));
     }, [activeDefinitiveIndex, definitives]);
 
+    const renameDefinitive = useCallback((index: number, title: string) => {
+        setDefinitives((prev) =>
+            prev.map((doc, docIndex) => (docIndex === index ? { ...doc, title } : doc)),
+        );
+    }, []);
+
     const switchDefinitive = useCallback(
         (direction: number) => {
             setActiveDefinitiveIndex((prev) => {
@@ -185,6 +191,7 @@ export const useEditorState = (storageKey: string) => {
         setActiveDefinitiveIndex,
         addDefinitive,
         removeDefinitive,
+        renameDefinitive,
         switchDefinitive,
         applyPayload,
         getPayload,
