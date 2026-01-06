@@ -21,7 +21,7 @@ export const EditorTemplate = ({
     overlay,
     styles,
 }: EditorTemplateProps) => (
-    <div className="h-screen flex flex-row bg-slate-950 text-slate-100 relative overflow-hidden">
+    <div className="h-screen flex flex-row bg-gray-900 text-gray-100 relative overflow-hidden">
         {actionBar}
         {styles}
         {left}

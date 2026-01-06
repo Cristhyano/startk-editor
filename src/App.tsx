@@ -43,11 +43,11 @@ function App() {
     const importInputRef = useRef<HTMLInputElement | null>(null);
 
     const darkTextareaClass =
-        "resize-none p-4 bg-slate-950 text-slate-100 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-600 transition-colors duration-200";
+        "resize-none p-4 bg-gray-900 text-gray-100 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500";
     const draftTextareaClass =
-        "resize-none p-4 bg-slate-900 text-slate-100 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-600 transition-colors duration-200";
+        "resize-none p-4 bg-gray-800 text-gray-100 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500";
     const controlButtonClass =
-        "rounded-md border border-slate-700 bg-slate-900 p-2 text-slate-200 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-600 transition-colors duration-200";
+        "rounded-md border border-gray-700 bg-gray-800 p-2 text-gray-100 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500";
     const floatDurationMs = 780;
     const floatDelayMs = 90;
     const trashDurationMs = 5000;
@@ -323,7 +323,7 @@ function App() {
                 return (
                     <div
                         key={`h-${index}`}
-                        className={`${sizeClass} font-semibold text-slate-100`}
+                        className={`${sizeClass} font-semibold text-gray-100`}
                         dangerouslySetInnerHTML={{ __html: renderInlineMarkdown(heading[2]) }}
                     />
                 );
@@ -332,10 +332,10 @@ function App() {
             if (checklist) {
                 const checked = checklist[2] === "x";
                 return (
-                    <div key={`c-${index}`} className="flex items-center gap-2 text-slate-200">
+                    <div key={`c-${index}`} className="flex items-center gap-2 text-gray-200">
                         <span
-                            className={`inline-flex h-3 w-3 items-center justify-center border border-slate-400 ${
-                                checked ? "bg-slate-400" : "bg-transparent"
+                            className={`inline-flex h-3 w-3 items-center justify-center border border-gray-400 ${
+                                checked ? "bg-gray-400" : "bg-transparent"
                             }`}
                         ></span>
                         <span
@@ -347,8 +347,8 @@ function App() {
             const bullet = line.match(/^(\s*)- (.*)$/);
             if (bullet) {
                 return (
-                    <div key={`b-${index}`} className="flex items-start gap-2 text-slate-200">
-                        <span className="mt-2 h-1 w-1 rounded-full bg-slate-400"></span>
+                    <div key={`b-${index}`} className="flex items-start gap-2 text-gray-200">
+                        <span className="mt-2 h-1 w-1 rounded-full bg-gray-400"></span>
                         <span dangerouslySetInnerHTML={{ __html: renderInlineMarkdown(bullet[2]) }} />
                     </div>
                 );
@@ -356,7 +356,7 @@ function App() {
             return (
                 <div
                     key={`p-${index}`}
-                    className="text-slate-300"
+                    className="text-gray-300"
                     dangerouslySetInnerHTML={{ __html: renderInlineMarkdown(line) }}
                 />
             );
@@ -616,18 +616,6 @@ function App() {
             .fade-in {
                 animation: fadeIn 180ms ease-out forwards;
             }
-            .active-command {
-                animation: commandPulse 260ms ease-out forwards;
-                color: #e2e8f0;
-            }
-            @keyframes commandPulse {
-                0% {
-                    background-color: rgba(148, 163, 184, 0.18);
-                }
-                100% {
-                    background-color: transparent;
-                }
-            }
             @keyframes fadeIn {
                 from {
                     opacity: 0;
@@ -661,7 +649,7 @@ function App() {
         <div className="flex-1 flex h-full flex-col gap-1 min-h-0">
             <Label text="RASCUNHO" />
             <AutoScrollTextarea
-                className={`${draftTextareaClass} flex-1 transition-shadow duration-200 focus:shadow-[0_0_0_1px_rgba(148,163,184,0.3)]`}
+                className={`${draftTextareaClass} flex-1`}
                 value={leftText}
                 onChange={setLeftText}
                 textareaRef={leftRef}
@@ -672,7 +660,7 @@ function App() {
     const centerTop = (
         <div className="flex flex-1 flex-col gap-1 min-h-0">
             <CommandLogPanel
-                className={`${darkTextareaClass} flex-1 font-mono text-xs leading-relaxed transition-shadow duration-200`}
+                className={`${darkTextareaClass} flex-1 font-mono text-xs leading-relaxed`}
                 commandLog={commandLog}
                 activeCommandId={activeCommandId}
             />
@@ -684,7 +672,7 @@ function App() {
             <Label text="ENTRADA" />
             <div className="flex-1 relative min-h-0">
                 <textarea
-                    className={`${darkTextareaClass} h-full w-full text-4xl font-mono transition-shadow duration-200 focus:shadow-[0_0_0_1px_rgba(148,163,184,0.3)]`}
+                    className={`${darkTextareaClass} h-full w-full text-4xl font-mono`}
                     value={centerText}
                     autoFocus
                     ref={centerRef}
@@ -692,8 +680,8 @@ function App() {
                     onKeyDown={handleCenterKeyDown}
                 ></textarea>
                 {entryActive ? (
-                    <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-1 bg-slate-800/70">
-                        <div key={entryCycle} className="entry-bar h-full bg-emerald-500"></div>
+                    <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-1 bg-gray-700">
+                        <div key={entryCycle} className="entry-bar h-full bg-green-500"></div>
                     </div>
                 ) : null}
             </div>
@@ -705,13 +693,13 @@ function App() {
             <Label text="LIXEIRA" />
             <div className="flex-1 relative min-h-0">
                 <AutoScrollTextarea
-                    className={`${darkTextareaClass} h-full w-full transition-shadow duration-200 focus:shadow-[0_0_0_1px_rgba(148,163,184,0.3)]`}
+                    className={`${darkTextareaClass} h-full w-full`}
                     value={bottomText}
                     onChange={setBottomText}
                     textareaRef={bottomRef}
                 />
                 {trashActive ? (
-                    <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-1 bg-slate-800/70">
+                    <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-1 bg-gray-700">
                         <div key={trashCycle} className="trash-bar h-full bg-red-500"></div>
                     </div>
                 ) : null}
@@ -734,7 +722,7 @@ function App() {
                 </div>
             ) : (
                 <AutoScrollTextarea
-                    className={`${darkTextareaClass} flex-1 w-full transition-shadow duration-200 focus:shadow-[0_0_0_1px_rgba(148,163,184,0.3)]`}
+                    className={`${darkTextareaClass} flex-1 w-full`}
                     value={rightText}
                     onChange={setRightText}
                     textareaRef={rightRef}
@@ -777,7 +765,7 @@ function App() {
                     }}
                 >
                     <div
-                        className="floating-text max-w-xs px-1 text-sm text-slate-200"
+                        className="floating-text max-w-xs px-1 text-sm text-gray-200"
                         style={
                             {
                                 "--dx": `${floater.dx}px`,

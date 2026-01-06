@@ -17,10 +17,10 @@ export const DefinitiveTabs = ({
         {definitives.map((doc, index) => (
             <button
                 key={doc.id}
-                className={`relative rounded-md border px-2 py-1 text-[10px] tracking-[0.2em] transition-colors duration-200 ${
+                className={`relative rounded-md border px-2 py-1 text-[10px] tracking-[0.2em] transition-colors ${
                     index === activeIndex
-                        ? "border-slate-500 bg-slate-800 text-slate-100"
-                        : "border-slate-700 bg-slate-900 text-slate-400 hover:text-slate-200"
+                        ? "border-gray-500 bg-gray-700 text-gray-100"
+                        : "border-gray-700 bg-gray-800 text-gray-400 hover:text-gray-200"
                 }`}
                 type="button"
                 onClick={() => onSelect(index)}
@@ -28,12 +28,12 @@ export const DefinitiveTabs = ({
             >
                 {doc.title}
                 {doc.content.trim().length > 0 ? (
-                    <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-blue-500"></span>
+                    <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-gray-400"></span>
                 ) : null}
             </button>
         ))}
         <button
-            className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[10px] text-slate-400 transition-colors duration-200 hover:text-slate-200"
+            className="rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-[10px] text-gray-400 transition-colors hover:text-gray-200"
             type="button"
             onClick={onAdd}
             title="Novo definitivo"

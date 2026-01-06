@@ -13,7 +13,10 @@ export const CommandLogPanel = ({
 }: CommandLogPanelProps) => (
     <div className={className}>
         {commandLog.map((entry) => (
-            <div key={entry.id} className={entry.id === activeCommandId ? "active-command" : ""}>
+            <div
+                key={entry.id}
+                className={entry.id === activeCommandId ? "bg-gray-800 text-gray-100" : ""}
+            >
                 {entry.text}
             </div>
         ))}
