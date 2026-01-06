@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
+import {
+    DownloadIcon,
+    UploadIcon,
+    ResetIcon,
+    EyeOpenIcon,
+    Pencil2Icon,
+} from "@radix-ui/react-icons";
 
 type DocumentTextareaProps = {
     value: string;
@@ -119,7 +126,7 @@ function App() {
     const [trashActive, setTrashActive] = useState(false);
     const [rightPreviewMode, setRightPreviewMode] = useState(false);
     const controlButtonClass =
-        "rounded-md border border-slate-700 bg-slate-900 px-3 py-1 text-xs text-slate-200 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-600";
+        "rounded-md border border-slate-700 bg-slate-900 p-2 text-slate-200 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-600";
 
     const getPayload = (): SavedState => ({
         upper: upperText,
@@ -539,25 +546,41 @@ function App() {
     return (
         <div className="h-screen flex flex-row bg-slate-950 text-slate-100 relative overflow-hidden">
             <div className="absolute bottom-4 left-4 z-50 flex items-center gap-2">
-                <button className={controlButtonClass} type="button" onClick={handleExport}>
-                    Export
+                <button
+                    className={controlButtonClass}
+                    type="button"
+                    onClick={handleExport}
+                    title="Export"
+                    aria-label="Export"
+                >
+                    <DownloadIcon />
                 </button>
                 <button
                     className={controlButtonClass}
                     type="button"
                     onClick={() => importInputRef.current?.click()}
+                    title="Import"
+                    aria-label="Import"
                 >
-                    Import
+                    <UploadIcon />
                 </button>
-                <button className={controlButtonClass} type="button" onClick={handleReset}>
-                    Reset
+                <button
+                    className={controlButtonClass}
+                    type="button"
+                    onClick={handleReset}
+                    title="Reset"
+                    aria-label="Reset"
+                >
+                    <ResetIcon />
                 </button>
                 <button
                     className={controlButtonClass}
                     type="button"
                     onClick={() => setRightPreviewMode((prev) => !prev)}
+                    title={rightPreviewMode ? "Edit" : "Preview"}
+                    aria-label={rightPreviewMode ? "Edit" : "Preview"}
                 >
-                    {rightPreviewMode ? "Edit" : "Preview"}
+                    {rightPreviewMode ? <Pencil2Icon /> : <EyeOpenIcon />}
                 </button>
                 <input
                     ref={importInputRef}
@@ -603,54 +626,80 @@ function App() {
                 }
             `}</style>
 
-            <DocumentTextarea
-                className={`${draftTextareaClass} flex-1`}
-                value={leftText}
-                onChange={setLeftText}
-                textareaRef={leftRef}
-            />
+            <div className="flex-1 flex h-full flex-col gap-1">
+                <div className="text-xs font-semibold tracking-[0.2em] text-slate-400">
+                    RASCUNHO
+                </div>
+                <DocumentTextarea
+                    className={`${draftTextareaClass} flex-1`}
+                    value={leftText}
+                    onChange={setLeftText}
+                    textareaRef={leftRef}
+                />
+            </div>
 
             <div className="flex-1 w-full flex flex-col">
-                <DocumentTextarea
-                    className={`${darkTextareaClass} flex-1`}
-                    value={upperText}
-                    onChange={setUpperText}
-                    textareaRef={upperRef}
-                />
-                <textarea
-                    className={`${darkTextareaClass} flex-1 text-4xl font-mono`}
-                    value={centerText}
-                    autoFocus
-                    ref={centerRef}
-                    onChange={(event) => setCenterText(event.target.value)}
-                    onKeyDown={handleCenterKeyDown}
-                ></textarea>
-
-                <div className="flex-1 relative">
+                <div className="flex flex-1 flex-col gap-1">
+                    <div className="text-xs font-semibold tracking-[0.2em] text-slate-400">
+                        DOCUMENTO
+                    </div>
                     <DocumentTextarea
-                        className={`${darkTextareaClass} h-full w-full`}
-                        value={bottomText}
-                        onChange={setBottomText}
-                        textareaRef={bottomRef}
+                        className={`${darkTextareaClass} flex-1`}
+                        value={upperText}
+                        onChange={setUpperText}
+                        textareaRef={upperRef}
                     />
-                    {trashActive ? (
-                        <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-1 bg-slate-800/70">
-                            <div key={trashCycle} className="trash-bar h-full bg-red-500"></div>
-                        </div>
-                    ) : null}
+                </div>
+                <div className="flex flex-1 flex-col gap-1">
+                    <div className="text-xs font-semibold tracking-[0.2em] text-slate-400">
+                        ENTRADA
+                    </div>
+                    <textarea
+                        className={`${darkTextareaClass} flex-1 text-4xl font-mono`}
+                        value={centerText}
+                        autoFocus
+                        ref={centerRef}
+                        onChange={(event) => setCenterText(event.target.value)}
+                        onKeyDown={handleCenterKeyDown}
+                    ></textarea>
+                </div>
+
+                <div className="flex flex-1 flex-col gap-1">
+                    <div className="text-xs font-semibold tracking-[0.2em] text-slate-400">
+                        LIXEIRA
+                    </div>
+                    <div className="flex-1 relative">
+                        <DocumentTextarea
+                            className={`${darkTextareaClass} h-full w-full`}
+                            value={bottomText}
+                            onChange={setBottomText}
+                            textareaRef={bottomRef}
+                        />
+                        {trashActive ? (
+                            <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-1 bg-slate-800/70">
+                                <div
+                                    key={trashCycle}
+                                    className="trash-bar h-full bg-red-500"
+                                ></div>
+                            </div>
+                        ) : null}
+                    </div>
                 </div>
             </div>
 
-            <div className="flex-1">
+            <div className="flex-1 flex h-full flex-col gap-1">
+                <div className="text-xs font-semibold tracking-[0.2em] text-slate-400">
+                    DEFINITIVO
+                </div>
                 {rightPreviewMode ? (
-                    <div className={`${darkTextareaClass} h-full w-full overflow-auto`}>
+                    <div className={`${darkTextareaClass} flex-1 w-full overflow-auto`}>
                         <div className="space-y-2 leading-relaxed">
                             {renderMarkdownLines(rightText)}
                         </div>
                     </div>
                 ) : (
                     <DocumentTextarea
-                        className={`${darkTextareaClass} h-full w-full`}
+                        className={`${darkTextareaClass} flex-1 w-full`}
                         value={rightText}
                         onChange={setRightText}
                         textareaRef={rightRef}
