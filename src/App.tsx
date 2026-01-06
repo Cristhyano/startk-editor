@@ -95,34 +95,37 @@ function App() {
     };
 
     return (
-        <div className="h-screen flex flex-col bg-neutral-900 text-neutral-200">
+        <div className="h-screen flex flex-row bg-neutral-900 text-neutral-200">
             <DocumentTextarea
                 className={documentClassName}
-                value={upperText}
-                onChange={setUpperText}
+                value={leftText}
+                onChange={setLeftText}
             />
-            <div className="flex-1 w-full flex flex-row">
+
+            <div className="flex-1 w-full flex flex-col">
                 <DocumentTextarea
                     className={documentClassName}
-                    value={leftText}
-                    onChange={setLeftText}
+                    value={upperText}
+                    onChange={setUpperText}
                 />
                 <textarea
-                    className="flex-1 text-center border px-20 py-8 border-neutral-200 rounded-lg animate-pulse"
+                    className={documentClassName + " text-4xl"}
                     value={centerText}
+                    autoFocus
                     onChange={(event) => setCenterText(event.target.value)}
                     onKeyDown={handleCenterKeyDown}
                 ></textarea>
+
                 <DocumentTextarea
                     className={documentClassName}
-                    value={rightText}
-                    onChange={setRightText}
+                    value={bottomText}
+                    onChange={setBottomText}
                 />
             </div>
             <DocumentTextarea
                 className={documentClassName}
-                value={bottomText}
-                onChange={setBottomText}
+                value={rightText}
+                onChange={setRightText}
             />
         </div>
     );
